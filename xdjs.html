@@ -1,0 +1,1352 @@
+<script src="https://js.stripe.com/v3/"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cleave.js/1.6.0/cleave.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/parsley.js/2.9.2/parsley.min.js"></script>
+<!-- NZ Bank no. validator -->
+<script src="https://donate.act.greenpeace.org.nz/nzbankvalidatejs"></script>
+<!-- Recaptcha -->
+<script src="https://www.google.com/recaptcha/api.js?render=6LcjFEkaAAAAACtRZ_MJ0Qhtvmf3c-F7-v1xpZZd"></script>
+<!-- jQuery -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"
+      integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg=="
+      crossorigin="anonymous"
+    ></script>
+<script>
+ 
+  var formvalue = {};
+  var payment_type = "";
+  const queryString = window.location.search;
+  const urlParams = new URLSearchParams(queryString);
+  const referrer = document.referrer;
+  var debug = urlParams.getAll("d")[0] == "1" ? true : false;
+  var elements;
+
+  //Bank Account Validatity
+  var validateBankAccStatus = false;
+
+  var bankAccountValidator = window["NZ-Bank-Account-Validator"];
+  //Bank Account Validatity and UI error response function
+  const validateBank = function validateBank(account) {
+    accountNumValidity = bankAccountValidator.validate(account);
+    if (accountNumValidity && account.length >= 18) {
+      if (debug) console.log("BankAccount ok");
+      var validBankAccount = account;
+      $(".error").hide();
+      $("#account_number").addClass("parsley-success");
+      $("#account_number").removeClass("parsley-error");
+    } else {
+      if (debug) console.log("BankAccount length", account.length);
+      if (account.length <= 18 && account.length != 0) {
+        console.log("BankAccount error");
+        $(".error").show();
+        $(".error .message").show().html("Invaild Bank Acc No.");
+        $("#account_number").removeClass("parsley-success");
+        $("#account_number").addClass("parsley-error");
+      }
+    }
+    return accountNumValidity;
+  };
+
+  function formatNumber(n) {
+    // format number 1000000 to 1,234,567
+    //return n.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return n.replace(/\D/g, "");
+  }
+
+  function formatCurrency(input, blur, isOther) {
+    // prepends $ to value, validates decimal side
+    // and puts cursor back in right position.
+
+    // get input value
+    var input_val = input.val();
+    
+
+    // don't validate empty input
+    if (input_val === "" && isOther == undefined) {
+      return;
+    }
+
+    // original length
+    var original_len = input_val.length;
+
+    // initial caret position
+    var caret_pos = input.prop("selectionStart");
+
+    // check for decimal
+    if (input_val.indexOf(".") >= 0) {
+      // get position of first decimal
+      // this prevents multiple decimals from
+      // being entered
+      var decimal_pos = input_val.indexOf(".");
+
+      // split number by decimal point
+      var left_side = input_val.substring(0, decimal_pos);
+      var right_side = input_val.substring(decimal_pos);
+
+      // add commas to left side of number
+      left_side = formatNumber(left_side);
+
+      // validate right side
+      right_side = formatNumber(right_side);
+
+      // On blur make sure 2 numbers after decimal
+      if (blur === "blur") {
+        right_side += "00";
+      }
+
+      // Limit decimal to only 2 digits
+      right_side = right_side.substring(0, 2);
+
+      // join number by .
+      input_val = "$" + left_side + "." + right_side;
+    } else {
+      // no decimal entered
+      // add commas to number
+      // remove all non-digits
+      input_val = formatNumber(input_val);
+      input_val = "$" + input_val;
+
+      // final formatting
+      if (blur === "blur") {
+        input_val += ".00";
+      }
+    }
+
+    // send updated string to input
+    input.val(input_val);
+
+    // put caret back in the right position
+    var updated_len = input_val.length;
+    caret_pos = updated_len - original_len + caret_pos;
+    input[0].setSelectionRange(caret_pos, caret_pos);
+  }
+
+  function grecaptchaCallback(resp) {
+    let verify = fetch("https://donate.act.greenpeace.org.nz/recaptchadonate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/html",
+      },
+      body: resp,
+    })
+      .then((response) => response.text())
+      .then((response) => {
+        let jsonResponse = JSON.parse(response);
+        let responseSate = jsonResponse["success"];
+        if (debug) {
+          console.log(`Debug: reCaptcha Check 💚`);
+          console.log(`Debug: reCaptcha response: ${response}`);
+        }
+        return responseSate;
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        grecaptcha.reset();
+        return false;
+      });
+  }
+
+  $(function () {
+    if(document.querySelector("#frequency_monthly").checked){
+        $("h5.please_make_this_recurring").hide();
+        $("h5.regular_donation").show();
+        $("label[for=payment_type_direct_debit]").show();
+        $(".once_every_frequency").show();
+    } else if (document.querySelector("#frequency_single").checked){
+        $("h5.please_make_this_recurring").show();
+        $("h5.regular_donation").hide();
+        $("label[for=payment_type_direct_debit]").hide();
+        $(".once_every_frequency").hide();
+        $("div#direct_debit_form").hide();
+    }
+    $("#frequency_buttons input:radio, #makeSingle, #makeRG").on("change click", function () {
+      var value = $(this).val();
+      if(debug){
+        console.log("this.id",this.id);
+      };
+      if (value == "single" || this.id == "makeSingle") {
+        document.getElementById("PostalAddress").placeholder = "Enter NZ postal address";
+        //If single select CC as Payment
+        $("input:radio[name=payment_type][value=credit_card]").click();
+
+        $("h5.please_make_this_recurring").show();
+        $("h5.regular_donation").hide();
+        $("label[for=payment_type_direct_debit]").hide();
+        $(".once_every_frequency").hide();
+        $("div#direct_debit_form").hide();
+        $("#da1").val($("#das1").val());
+        $("#da1")
+          .next()
+          .text("$" + $("#das1").val());
+        $("#da2").val($("#das2").val());
+        $("#da2")
+          .next()
+          .text("$" + $("#das2").val());
+        $("#da3").val($("#das3").val());
+        $("#da3")
+          .next()
+          .text("$" + $("#das3").val());
+        $("#da4").val($("#das4").val());
+        $("#da4")
+          .next()
+          .text("$" + $("#das4").val());
+        $("span.type").html("single");
+      } else {
+        $('#payment_type_direct_debit_label').show();
+        document.getElementById("PostalAddress").placeholder = "NZ postal address to receive your welcome pack";
+        $("h5.please_make_this_recurring").hide();
+        $("h5.regular_donation").show();
+        $("label[for=payment_type_direct_debit]").show();
+        $(".once_every_frequency").show();
+        $("#da1").val($("#dam1").val());
+        $("#da1")
+          .next()
+          .text("$" + $("#dam1").val());
+        $("#da2").val($("#dam2").val());
+        $("#da2")
+          .next()
+          .text("$" + $("#dam2").val());
+        $("#da3").val($("#dam3").val());
+        $("#da3")
+          .next()
+          .text("$" + $("#dam3").val());
+        $("#da4").val($("#dam4").val());
+        $("#da4")
+          .next()
+          .text("$" + $("#dam4").val());
+        $("span.type").html("regular");
+      }
+
+      $("#da1").next().click();
+    });
+
+    $("#amount_other_value").on("keyup", function () {
+      formatCurrency($(this));
+    });
+
+    $("#amount_other_value").on("invalid", function () {
+      $(this).addClass("error");
+    });
+
+    $("#amount_other_value").on("blur", function () {
+      formatCurrency($(this), "blur");
+      $(this)[0].checkValidity();
+    });
+
+    var date = new Date();
+    var localDateTime =
+      date.getFullYear() +
+      "-" +
+      (date.getMonth() + 1) +
+      "-" +
+      date.getDate() +
+      " " +
+      date.getHours() +
+      ":" +
+      date.getMinutes() +
+      ":" +
+      date.getSeconds();
+
+    $("input[name=localDateTime]").val(localDateTime);
+    let url_source = btoa(window.location.href); //base64encode
+    $("input[name=url_source]").val(url_source);
+
+    //$("#donation_amount input").bind(
+    //  "click keyup focus blur",
+    $('#donation_amount input').change(
+      function (event) {
+        var amount = $(this).val().replace(/[$]/g, ""); // cleanse non-digit chars
+        var amount_other_selected = $(this).prop("id");
+
+        $("input[name=amount]").val(amount);
+        $("#amount_confirm").html(amount);
+
+        if (amount_other_selected == "amount_other" || amount_other_selected == "amount_other_value") {
+          $("#amount_other").prop("checked", true);
+          //if($("#amount_other_value").val() == ""){
+          //  formatCurrency($("#amount_other_value"), "blur");
+          //  $("#amount_other_value").addClass("error");
+          //};
+          //$("#amount_other_value")[0].checkValidity();
+          formatCurrency($("#amount_other_value"),0,true); //Test Blocking blank submit
+        } else {
+          $("#amount_other_value").val("");
+        }
+      }
+    );
+
+    $("input[name=frequency]").click(function () {
+      var freqClicked = $(this).val();
+      let amountReset = document.getElementById("da1").value
+
+      if (debug) {console.log("freqClicked", freqClicked)};
+      if (freqClicked == "single") {
+        $("input[name=account_number]").prop("disabled", true);
+        $("input[name=name_on_account]").prop("disabled", true);
+        amountReset = document.getElementById("das1").value
+        $("input[name=amount]").val(amountReset);
+        $("#amount_confirm").html(amountReset);
+        if(debug){
+         console.log(`s ${amountReset}`);
+        }
+      } else {
+        $("input[name=account_number]").prop("disabled", true);
+        $("input[name=name_on_account]").prop("disabled", true);
+        amountReset = document.getElementById("dam1").value
+        $("input[name=amount]").val(amountReset);
+        $("#amount_confirm").html(amountReset);
+        if(debug){
+         console.log(`m ${amountReset}`);
+        }
+      }
+    });
+    
+    // Transform name input
+    document
+      .addEventListener("input", function (event) {
+        if(event.target.id=="firstname" || event.target.id=="lastname" ){
+            var name = event.target.value;
+            // Capitalise first character
+            name = name.substr(0, 1).toUpperCase() + name.substr(1);
+            // remove leading space
+            if(name.substring(0,1)==" "){
+              name = name.substring(1);
+            }
+            event.target.value = name;
+        }
+      });
+    
+  });
+
+  var pkeys = {
+    lbt: "",
+    gpt: "",
+    gpp: "",
+  };
+  var stripe = Stripe(pkeys.gpp);
+  if (debug) {
+    stripe = Stripe(pkeys.gpt);
+  }
+
+  function registerElements(elements, exampleName) {
+    var example = $(exampleName);
+    var form = $("form#payment_form");
+    var error = $("form#payment_form .error");
+    var errorMessage = $("form#payment_form .error .message");
+
+    function enableInputs() {
+      $("input[type='text'], input[type='email']").prop("disabled", false);
+    }
+
+    function disableInputs() {
+      $("input[type='text'], input[type='email']").prop("disabled", true);
+    }
+
+    function triggerBrowserValidation() {
+      // The only way to trigger HTML5 form validation UI is to fake a user submit
+      // event.
+      var submit = document.createElement("input");
+      f;
+      submit.type = "submit";
+      submit.style.display = "none";
+      form.appendChild(submit);
+      submit.click();
+      submit.remove();
+    }
+
+    // Listen for errors from each Element, and show error messages in the UI.
+    var savedErrors = {};
+    elements.forEach(function (element, idx) {
+      element.on("change", function (event) {
+        if (event.error) {
+          error.addClass("visible").show();
+          savedErrors[idx] = event.error.message;
+          errorMessage.html(event.error.message);
+        } else {
+          savedErrors[idx] = null;
+
+          // Loop over the saved errors and find the first one, if any.
+          var nextError = Object.keys(savedErrors)
+            .sort()
+            .reduce(function (maybeFoundError, key) {
+              return maybeFoundError || savedErrors[key];
+            }, null);
+
+          if (nextError) {
+            // Now that they've fixed the current error, show another one.
+            errorMessage.html(nextError);
+          } else {
+            // The user fixed the last error; no more errors.
+            error.removeClass("visible").hide();
+          }
+        }
+      }); // end on-change
+    }); // end foreach
+
+    $("form").submit(function (e) {
+
+      const subKey = document.getElementById("subkey").value;
+      const emailLookup = document.querySelector("input[name=email]").value;
+      const email = document.getElementById("email").value;
+      const phoneLookup = document.getElementById("PrefPhone").value;
+      
+      // on Submit run full phone valiadation function and process number for NZ phone
+      const phoneInput = document.getElementById("phone-input").value;
+      if (debug) {
+        console.log(phoneInput);
+      }
+      // Only run formatPhoneNumber function if there is an input value
+      // if (phoneInput != "") {}
+      const phone = formatPhoneNumber(phoneInput);
+      if (debug) {
+        console.log(phone);
+      }
+      // End of Phone validation
+
+      //const pageCodeStr = formvalue["page_code"];
+      const pageCodeStr = document.getElementById("page_code").value;
+      const n = pageCodeStr.includes("p4");
+      let actionStr = "appeals";
+      if (n) {
+        actionStr = "p4";
+      }
+
+      grecaptcha.ready(function () {
+        grecaptcha
+          .execute("6LcjFEkaAAAAACtRZ_MJ0Qhtvmf3c-F7-v1xpZZd", {
+            action: actionStr,
+          })
+          .then(function (token) {
+            let recaptchaResp = grecaptchaCallback(token);
+            if (!recaptchaResp) {
+              e.preventDefault();
+              return;
+            }
+          });
+      });
+
+      var plainInputsValid = true;
+      $("#payment_form input").each(function (input) {
+        if (input.checkValidity && !input.checkValidity()) {
+          plainInputsValid = false;
+          return;
+        }
+      });
+
+      if (!plainInputsValid) {
+        triggerBrowserValidation();
+        return;
+      }
+
+      // Show a loading screen...
+      //example.addClass("submitting");
+
+      // Disable submit button
+      $("#donation_button").html("submitting..");
+      $("#donation_button").attr("disabled", true);
+
+      // Gather additional customer data we may have collected in our form.
+
+      var additionalData = {
+        name: formvalue["credit_card_name"],
+      };
+      if (debug) {
+        console.log(additionalData);
+      }
+
+      // in the additional customer data we collected in our form.
+      var urlencoded = new URLSearchParams();
+      urlencoded.append("submit", "1");
+
+      //Add Referrer URL for handler processing
+      if(!(referrer == "" || referrer == null)){
+        urlencoded.append("referrer_url", referrer);
+      };
+
+      $.each(formvalue, function (e) {
+        urlencoded.append(e, this);
+      });
+
+      // Compare current Email on record with input field value
+      // Determine if email or Phone number has been updated by user
+      if (emailLookup == "") {
+        if (debug) {
+          console.log(`Debug: emailLookup empty: ${emailLookup}`);
+        }
+        if (
+          phone.transformed_phone != phoneLookup &&
+          phone.transformed_phone != ""
+        ) {
+          if (debug) {
+            console.log(`Debug: Phone modified`);
+            console.log(
+              `Debug: phone.transformed_phone: ${phone.transformed_phone}`
+            );
+            console.log(`Debug: phoneLookup: ${phoneLookup}`);
+            console.log(`Debug: subkey not appended: ${subkey}`);
+          }
+        }
+      } else if (email != emailLookup) {
+        if (debug) {
+          console.log(`Debug: email: ${email}`);
+          console.log(`Debug: emailLookup: ${emailLookup}`);
+          console.log(`Debug: subkey not appended: ${subkey}`);
+        }
+      } else {
+        if (debug) {
+          console.log(`Debug: Email & Phone not modified`);
+        }
+        urlencoded.append("c", subKey);
+      }
+      
+      // Update hidden Phone Fields with processed phonenumber
+      urlencoded.set("formated_phone", phone.transformed_phone);
+      urlencoded.set("mobile", phone.mobile);
+      urlencoded.set("landline", phone.landline);
+
+      if (debug) {
+        urlencoded.append("d", 1);
+      }
+      
+
+      payment_type = $("#payment_method_buttons input:radio:checked").val();
+      if (debug) {console.log(`payment_type = ${payment_type}`)};
+      if (debug) {console.log(`validateBankAccStatus = ${validateBankAccStatus}`)};
+
+      if (payment_type == "direct_debit" && validateBankAccStatus) {
+        fetch("https://donate.act.greenpeace.org.nz/hdr-r115", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: urlencoded,
+        })
+          .then((resp) => resp.json())
+          .then(function (e) {
+            if (e.error) {
+                console.log(e);
+              $(".error").show();
+              $(".error .message").show().html(e.msg);
+              $("#donation_button").attr("disabled", false);
+              $("#donation_button").html("Donate");
+            } else if (e.success) {
+              if (typeof donateValueSum == "function") {
+                let value = Number(document.getElementById("amount_confirm").innerText);
+                donateValueSum(content_code, 0, value);
+              }
+              var utmTracking =
+                "&utm_campaign=" +
+                formvalue["utm_campaign"] +
+                "&utm_content=" +
+                formvalue["utm_content"] +
+                "&utm_medium=" +
+                formvalue["utm_medium"] +
+                "&utm_source=" +
+                formvalue["utm_source"] +
+                "&utm_term=" +
+                formvalue["utm_term"];
+              var sfmcTracking = "";
+              location.href = encodeURI(
+                "https://donate.act.greenpeace.org.nz/success?name=" +
+                  formvalue["firstname"] +
+                  "&amount=" +
+                  formvalue["amount"] +
+                  "&id=" +
+                  formvalue["id"] +
+                  "&cam=" +
+                  formvalue["campaign"] +
+                  "&pc=" +
+                  formvalue["page_code"] +
+                  sfmcTracking +
+                  utmTracking
+              );
+            }
+          })
+          .catch(function (e) {
+            if (debug) {
+              console.error("DD error: ", e.msg);
+            }
+            $(".error").show();
+            $(".error .message").show().html(e.msg);
+            $("#donation_button").attr("disabled", false);
+            $("#donation_button").html("Donate");
+          });
+      } else if (payment_type == "credit_card") {
+        stripe.createToken(elements[0], additionalData).then(function (result) {
+          if (result.token) {
+            // If we received a token, show the token ID.
+            $(".token").hide().html(result.token.id);
+            urlencoded.append("token", result.token.id);
+
+            if (debug) {
+              console.log("urlencoded: ", urlencoded.toString());
+            }
+
+            fetch("https://donate.act.greenpeace.org.nz/tac_handler", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: urlencoded,
+            })
+              .then((response) => response.json())
+              .then(function (e) {
+                if (debug) {
+                  console.log(e);
+                }
+
+                if (e.error) {
+                  $(".error").show();
+                  $(".error .message").show().html(e.msg);
+                  $("input[name=id]").val(
+                    Math.random().toString(36).substring(3)
+                  ); // reset Idempotency key if error
+                  $("form").trigger("change");
+                  $("#donation_button").attr("disabled", false);
+                  $("#donation_button").html("Donate");
+                } else if (e.success) {
+                  if (debug) {console.log("e.success", e.success)};
+                  if (typeof donateValueSum == "function") {
+                    let value = Number(document.getElementById("amount_confirm").innerText);
+                    donateValueSum(content_code, 0, value);
+                  }
+                  var transactiondata =
+                    "campaign=" +
+                    formvalue["campaign"] +
+                    "&email=" +
+                    formvalue["email"] +
+                    "&firstname=" +
+                    formvalue["firstname"] +
+                    "&lastname=" +
+                    formvalue["lastname"] +
+                    "&amount=" +
+                    formvalue["amount"] +
+                    "&frequency=" +
+                    formvalue["frequency"] +
+                    "&localDateTime=" +
+                    formvalue["localDateTime"];
+                  $.ajax({
+                    method: "POST",
+                    url: "https://donate.act.greenpeace.org.nz/tac_handler",
+                    data: transactiondata,
+                    success: function (result) {
+                      if (debug) {console.log("result", result)};
+                      if (debug) {console.log("transactiondata", transactiondata)};
+                      var utmTracking =
+                        "&utm_campaign=" +
+                        formvalue["utm_campaign"] +
+                        "&utm_content=" +
+                        formvalue["utm_content"] +
+                        "&utm_medium=" +
+                        formvalue["utm_medium"] +
+                        "&utm_source=" +
+                        formvalue["utm_source"] +
+                        "&utm_term=" +
+                        formvalue["utm_term"];
+                      var sfmcTracking = "";
+                      location.href = encodeURI(
+                        "https://donate.act.greenpeace.org.nz/thanks_petitions?name=" +
+                          formvalue["firstname"] +
+                          "&amount=" +
+                          formvalue["amount"] +
+                          "&frequency=" +
+                          formvalue["frequency"] +
+                          "&id=" +
+                          formvalue["id"] +
+                          "&cam=" +
+                          formvalue["campaign"] +
+                          "&pc=" +
+                          formvalue["page_code"] + 
+                          "&content_code=" +
+                          formvalue["content_code"] +
+                          "&submitted=true" +
+                          sfmcTracking +
+                          utmTracking
+                      );
+                    },
+                    error: function () {
+                      console.log("error result", result);
+                    },
+                  }); // end .ajax
+                } // end else-if
+              })
+              .catch(function (e) {
+                  console.log("CC error: ", e);
+                $(".error").show();
+                $(".error .message").show().html(e.msg);
+                $("input[name=id]").val(
+                  Math.random().toString(36).substring(3)
+                ); // reset Idempotency key if error
+                $("form").trigger("change");
+              
+                $("#donation_button").attr("disabled", false);
+                $("#donation_button").html("Donate");
+              });
+
+          } else {
+            // Otherwise, enable submit button
+            $("#donation_button").attr("disabled", false);
+            $("#donation_button").html("Donate");
+          }
+        });
+      }
+      e.preventDefault();
+      if (!validateBankAccStatus) {
+        validateBankAccStatus = validateBank($("#account_number").val());
+      }
+    });
+  }
+
+  
+</script>
+%%[ /* utm_term RG variation */ ]%%
+<script>
+  window.addEventListener("DOMContentLoaded", (event) => {
+    if (document.querySelector("[name='utm_term']").value == "rg") {
+      document.querySelector(".en__component--column--2").style.marginTop =
+        "25px";
+      var frequency_buttons = document.querySelector("#frequency_buttons");
+      frequency_buttons.style.display = "none";
+      var frequency_links = document.querySelectorAll(".frequency_links");
+      frequency_links.forEach(function (item) {
+        item.style.display = "block";
+      });
+      var setupDonationHeading = document.querySelectorAll("#donation_form h4");
+      setupDonationHeading[0].style.display = "none";
+
+      if (debug) {
+        console.log("DOM fully loaded and parsed");
+      }
+
+      // handle frequency changes
+      var makeSingle = document.querySelector("#makeSingle");
+      var makeRG = document.querySelector("#makeRG");
+
+      var singleSelected = document.querySelectorAll(".singleSelected");
+      var rgSelected = document.querySelectorAll(".rgSelected");
+      var frequency_monthly = document.querySelector("#frequency_monthly");
+      var frequency_single = document.querySelector("#frequency_single");
+      var payment_type_visa = document.querySelector("#payment_type_visa");
+      var payment_type_direct_debit_label = document.querySelector(
+        "#payment_type_direct_debit_label"
+      );
+
+      makeSingle.addEventListener("click", function (e) {
+        e.preventDefault();
+        if (debug) {
+          console.log("makeSingle click", e.target.id);
+        }
+        if (e.target.id == "makeSingle") {
+          // hide rgSelected
+          rgSelected.forEach(function (item) {
+            item.style.display = "none";
+          });
+          // show singleSelected
+          singleSelected.forEach(function (item, i) {
+            item.style.display = "block";
+            if (debug) {
+              console.log(item + " item " + i);
+            }
+          });
+        }
+      });
+
+      makeRG.addEventListener("click", function (e) {
+        e.preventDefault();
+        console.log("makeRG click", e.target.id);
+        if (e.target.id == "makeRG") {
+          // hide singleSelected
+          singleSelected.forEach(function (item) {
+            item.style.display = "none";
+          });
+          // show rgSelected
+          rgSelected.forEach(function (item) {
+            item.style.display = "block";
+          });
+        }
+      });
+    }
+  });
+</script>
+
+<style>
+  .frequency_links {
+    margin-bottom: 1em;
+  }
+  #donation_form #donation_amount {
+    padding-top: 0.5em;
+    margin-bottom: 0.5em;
+  }
+  #donation_form .frequency_links h5 {
+    color: green;
+    font-size: 20px;
+  }
+  .optimize-hide {
+    display: none;
+  }
+  .optimize-padding {
+    padding: 5%;
+  }
+  #imageBanner h4 {
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-size: 20px;
+    font-family: "Roboto", sans-serif;
+    font-weight: 900;
+    width: 100%;
+    text-align: left;
+    padding-top: 10%;
+    padding-left: 10%;
+    color: white;
+  }
+  .en__component--column--1 img {
+    width: 100%;
+    height: auto;
+  }
+  @media (min-width: 768px) {
+    .optimize-show-desktop-only {
+      display: block;
+    }
+    .optimize-show-mobile-only {
+      display: none;
+    }
+  }
+  @media (max-width: 767px) {
+    .optimize-show-desktop-only {
+      display: none;
+    }
+    .optimize-show-mobile-only {
+      display: block;
+    }
+  }
+</style>
+
+%%[ /* Stripe Elements + Bank & Address Functions */ ]%%
+
+<script>
+  function destroyelements() {
+    elements._elements.forEach(function (element, idx) {
+      element.destroy();
+    });
+  }
+
+  function stripepayment() {
+    "use strict";
+
+    elements = stripe.elements({
+      fonts: [
+        {
+          cssSrc: "https://fonts.googleapis.com/css?family=Quicksand",
+        },
+      ],
+      // Stripe's examples are localized to specific languages, but if
+      // you wish to have Elements automatically detect your user's locale,
+      // use `locale: 'auto'` instead.
+      locale: window.__exampleLocale,
+    });
+
+    var elementStyles = {
+      base: {
+        fontWeight: 600,
+        fontSize: "16px",
+        padding: "11px 12px 1px 12px!important;",
+        fontSmoothing: "antialiased",
+
+        ":focus": {
+          color: "#424770",
+        },
+
+        "::placeholder": {
+          color: "#9BACC8",
+        },
+
+        ":focus::placeholder": {
+          color: "#CFD7DF",
+        },
+      },
+      invalid: {
+        color: "red",
+        ":focus": {
+          color: "#FA755A",
+        },
+        "::placeholder": {
+          color: "#FFCCA5",
+        },
+      },
+    };
+
+    var elementClasses = {
+      focus: "focus",
+      empty: "empty",
+      invalid: "invalid",
+    };
+
+    var cardNumber = elements.create("cardNumber", {
+      style: elementStyles,
+      classes: elementClasses,
+    });
+    cardNumber.mount("#card-number");
+
+    var cardExpiry = elements.create("cardExpiry", {
+      style: elementStyles,
+      classes: elementClasses,
+    });
+    cardExpiry.mount("#card-expiry");
+
+    var cardCvc = elements.create("cardCvc", {
+      style: elementStyles,
+      classes: elementClasses,
+    });
+    cardCvc.mount("#card-cvc");
+
+    registerElements([cardNumber, cardExpiry, cardCvc], "#gp_donation");
+  }
+
+  var loading = function (isLoading) {
+    if (isLoading) {
+      // Disable the button and show a spinner
+      document.querySelector("button").disabled = true;
+      document.querySelector("#spinner").classList.remove("hidden");
+      document.querySelector("#button-text").classList.add("hidden");
+    } else {
+      document.querySelector("button").disabled = false;
+      document.querySelector("#spinner").classList.add("hidden");
+      document.querySelector("#button-text").classList.remove("hidden");
+    }
+  };
+
+  //function validationErrors(element, type, customErrorMessage) {
+  //  if (type == "phoneLength") {
+  //    if (customErrorMessage == "ok") {
+  //      phoneLengthOK = true;
+  //      $("#error-phoneNumber").hide();
+  //     console.log("green customErrorMessage==ok");
+  //    } else {
+  //      $(element).attr("isvalid", "true");
+  //      $(element).attr("data-validation-message", customErrorMessage);
+  //      $("#error-phoneNumber").show().html(customErrorMessage);
+  //      phoneLengthOK = false;
+  //      console.log("red");
+  //    }
+  //  }
+  //}
+
+  $(function () {
+    payment_type = $("#payment_method_buttons input:radio:checked").val();
+    console.log(`payment_type = ${payment_type}`);
+
+    if (payment_type == "credit_card") {
+      stripepayment();
+      $("#name_on_account").prop("disabled", true);
+      $("#account_number").prop("disabled", true);
+      $("div#direct_debit_form").hide();
+    } else if (payment_type == "direct_debit") {
+      validateBankAccStatus = validateBank($("#account_number").val());
+      $("div#direct_debit_form").show();
+      $("div#cc_detail_form").hide();
+    }
+
+    $("form").change(function () {
+      $.each($(this).serializeArray(), function () {
+        formvalue[this.name] = this.value;
+      });
+    });
+
+    //$('span.type').html($('#frequency_buttons input:radio').val());
+
+    $("input[name=amount_other_value]").on("focus", function () {
+      $("#amount_other").prop("checked", true);
+    });
+
+    $("#payment_method_buttons input:radio").on("change", function () {
+      //most important event, disables and destroys stripe and enable direct debit form for submission, vice versa
+      var value = $(this).val();
+
+      if (value == "direct_debit") {
+        $("div#direct_debit_form input").prop("disabled", false);
+        $("div#cc_detail_form input").prop("disabled", true);
+
+        $("div#cc_detail_form").hide();
+        $("div#direct_debit_form").show();
+        //Run Validaiton on Toggle to DD
+        validateBankAccStatus = validateBank($("#account_number").val());
+        destroyelements();
+      } else {
+        // Hide Error when switching to CC
+        $(".error").hide();
+        stripepayment();
+
+        $("div#direct_debit_form input").prop("disabled", true);
+        $("div#cc_detail_form input").prop("disabled", false);
+
+        $("div#cc_detail_form").show();
+        $("div#direct_debit_form").hide();
+      }
+    });
+    $("input[name=id]").val(Math.random().toString(36).substring(3));
+
+    //$("input[name=phone]").inputmask({
+    //  mask: "(999) 999-9999999",
+    //  placeholder: " ",
+    //});
+
+    widget = new AddressFinder.Widget(
+      document.getElementById("PostalAddress"),
+      "C63FLUJN48PT9AVY7BDK",
+      "NZ",
+      {
+        address_params: {
+          delivered: "1",
+        },
+      }
+    );
+
+    widget.on("address:select", function (fullAddress, metaData) {
+      console.log(metaData);
+      //$('input[name=primary_st_address]').val(metaData.postal_line_1);
+      //$('input[name=suburb]').val(metaData.selected_suburb);
+      //$('input[name=city]').val(metaData.selected_city);
+      $("input[name=postcode]").val(metaData.postcode);
+      $("input[name=country]").val("New Zealand");
+      $("input[name=meshblock]").val(metaData.meshblock);
+      $("input[name=longitude]").val(metaData.x);
+      $("input[name=latitude]").val(metaData.y);
+
+      //determine rural address
+      console.log("mdru", metaData.rural);
+      if (metaData.rural) {
+        console.log("metaData.postal_line_2", metaData.postal_line_2);
+        var rd = metaData.postal_line_2;
+        console.log("rd", rd);
+        var rdval = rd.substring(0, 2);
+        console.log("rdval", rdval);
+        if (rdval === "RD") {
+          $("input[name=rurual_delivery]").val(metaData.postal_line_2); // RD
+        }
+      }
+
+      /***************************************
+         Unit/Flat Apartment process by Francis  
+        ****************************************/
+
+      // Alpha
+      var annoying_alpha = metaData.alpha != null ? metaData.alpha : "";
+      console.log("annoying_alpha", annoying_alpha);
+      // Address in apartment or high rise case
+      // eg)
+      // Suite 1 Level 3, 53 Cuba Street, Te Aro, Wellington 6011
+      // Suite C Floor 1, 2 Marine Parade, Mount Maunganui 3116
+      //
+      var floor_with_unit =
+        metaData.unit_type != null && metaData.floor != null
+          ? metaData.unit_type +
+            " " +
+            metaData.unit_identifier +
+            " " +
+            metaData.floor +
+            ", " +
+            metaData.number +
+            annoying_alpha +
+            " " +
+            metaData.street
+          : "";
+
+      console.log("floor_with_unit ", floor_with_unit);
+
+      // Same as above without unit (if whole floor is just one unit)
+      // eg)
+      // Floor 2, 124 Vincent Street, Auckland Central, Auckland 1010
+      //
+      var floor_only =
+        metaData.floor != null
+          ? metaData.floor +
+            ", " +
+            metaData.number +
+            annoying_alpha +
+            " " +
+            metaData.street
+          : "";
+
+      console.log("floor_only ", floor_only);
+
+      // Address with unit_type case
+      // Flat/Unit/Suite/Room/Villa/Apartment all gets dropped and only show unit_identifier with /
+      //
+      var unit_only =
+        metaData.unit_type != null
+          ? metaData.unit_identifier +
+            "/" +
+            metaData.number +
+            annoying_alpha +
+            " " +
+            metaData.street
+          : "";
+
+      console.log("unit_only ", unit_only);
+
+      // Address with box_type case
+      // CMB => no suburb (box_type number, city postcode)
+      // Counter Delivery => (box_type, lobby_name, city postcode)
+      // PO Box => (box_type number, lobby_name, city postcode)
+      // Private Bag => (box_type number, lobby_name, city postcode)
+      //
+      var box_numbers =
+        metaData.box_type != null
+          ? metaData.box_type + " " + metaData.number
+          : "";
+
+      console.log("box_numbers ", box_numbers);
+
+      // Simple address
+      //
+      var simple_address =
+        metaData.number != null
+          ? metaData.number + annoying_alpha + " " + metaData.street
+          : "";
+
+      console.log("simple_address ", simple_address);
+
+      // Address assigning logic
+      //
+
+      if (metaData.floor != null) {
+        $("input[name=primary_st_address]").val(
+          metaData.unit_type != null ? floor_with_unit : floor_only
+        );
+      } else {
+        if (metaData.unit_type != null) {
+          $("input[name=primary_st_address]").val(unit_only);
+        } else if (metaData.box_type != null) {
+          // all box_type cases
+          $("input[name=primary_st_address]").val(box_numbers);
+        } else {
+          // simple address case
+          $("input[name=primary_st_address]").val(simple_address);
+        }
+      }
+      if (metaData.rd_number != null) {
+        $("input[name=rurual_delivery]").val("RD " + metaData.rd_number);
+      } else {
+        $("input[name=rurual_delivery]").val("");
+      }
+
+      var normal_suburb = metaData.suburb != null ? metaData.suburb : "";
+      var postal_suburb =
+        metaData.post_suburb != null ? metaData.post_suburb : normal_suburb;
+      var correct_suburb = postal_suburb; // all non-box addresses
+      if (metaData.box_type != null) {
+        correct_suburb =
+          metaData.lobby_name != null && metaData.lobby_name != metaData.city
+            ? metaData.lobby_name
+            : "";
+      }
+      $("input[name=suburb]").val(correct_suburb);
+      var towncity =
+        metaData.mailtown != null ? metaData.mailtown : metaData.city;
+      $("input[name=city]").val(towncity);
+    });
+
+    var cleave = new Cleave("#account_number", {
+      delimiter: "-",
+      blocks: [2, 4, 7, 3],
+    });
+
+    //validate bank number
+    $("#account_number").on("input", function () {
+      validateBankAccStatus = validateBank($(this).val());
+      if (debug) {
+        console.log(`$(this).val() = ${$(this).val()}`);
+        console.log(`validateBankAccStatus = ${validateBankAccStatus}`);
+      }
+    });
+  });
+</script>
+%%[ /* Phone validation */ ]%%
+
+<script>
+  var debug = false;
+
+  // Build array with all URL Params for later use
+  var params = {};
+  location.search
+    .substr(1)
+    .split("&")
+    .forEach(function (item) {
+      params[item.split("=")[0]] = item.split("=")[1];
+    });
+
+  // Debug URL Param
+  if (decodeURIComponent(params["d"]) == "1") {
+    debug = true;
+  }
+
+  if (debug) {
+    console.log("💚 Debug Flag Enabled");
+  }
+  // We will use this later to pass into function
+  let country = "NZ";
+
+  function validationErrors(element, type, customErrorMessage) {
+    if (type == "phoneLength") {
+      if (customErrorMessage == "ok") {
+        phoneOK = true;
+        $(".sc-button").attr("disabled", false);
+        $("#phoneLengthAlert")
+          .text("")
+          .addClass("success")
+          .removeClass("warning");
+        console.log("green");
+      } else {
+        element.attr("data-validation-message", customErrorMessage);
+        phoneOK = false;
+        $(".sc-button").attr("disabled", true);
+        $("#phoneLengthAlert")
+          .text(customErrorMessage)
+          .addClass("warning")
+          .removeClass("success");
+        console.log("red");
+      }
+    }
+  }
+  const cleanData = function (value) {
+    let cleanValue = value.replace("&", "and").replace(/[!@#$%^*()_+=<>]/g, "");
+    return cleanValue;
+  };
+  // On submit Phone Validation function
+  const formatPhoneNumber = function (input) {
+    const phone = {
+      phone_number: "",
+      transformed_phone: "",
+      mobile: "",
+      landline: "",
+    };
+    try {
+      const phoneNumber = new libphonenumber.parsePhoneNumber(input, country);
+      if (typeof phoneNumber == "undefined") {
+        if (debug) {
+          console.log("phoneNumber is undefined");
+        }
+        return phone;
+      } else {
+        if (phoneNumber.isValid() && phoneNumber.country === "NZ") {
+          const numberType = phoneNumber.getType(); //Used to Determine if number is mobile or landline
+          const cleanNumber = cleanData(phoneNumber.number); //Strip + and other symbols
+
+          switch (numberType) {
+            case "MOBILE":
+              phone.phone_number = phoneNumber.number; //User typed number
+              phone.mobile = phone.transformed_phone = cleanNumber; //Set both Mobile & Transformed_phone
+              break;
+            case "FIXED_LINE" || "UAN":
+              phone.phone_number = phoneNumber.number; //User typed number
+              phone.landline = phone.transformed_phone = cleanNumber; //Set both landline & transformed_phone
+              break;
+            default:
+              if (debug) {
+                console.log(`No match for: ${phoneNumber.number}`);
+              }
+              break;
+          }
+          //DEBUG
+          if (debug) {
+            console.log(`phone_number = ${phone.phone_number}`);
+            console.log(`transformed_phone = ${phone.transformed_phone}`);
+            console.log(`phone.mobile = ${phone.mobile}`);
+            console.log(`phone.landline = ${phone.landline}`);
+            console.log(phoneNumber.country);
+            console.log(phoneNumber.isValid());
+          }
+
+          return phone; //Returns phone Object
+        } else {
+          // Store user input phone even if not a NZ number
+          phone.phone_number = phoneNumber.number;
+          if (debug) {
+            console.log("Phone Number not a valid NZ Number");
+          }
+          return phone;
+        }
+      }
+    } catch (error) {
+      if (debug) {
+        console.log(`Debug: Phone Function Error: ${error}`);
+      }
+      return phone;
+    }
+  };
+
+  // Add div bellow phone input for Alert message
+  $("div[id=phone-input-wrapper]").after('<div id="phoneLengthAlert"></div>');
+  // AsYouType PhoneNumber validation
+  const inputPhoneValidator = function (input) {
+    // let inputNumber = $(this).val(); // get input value
+    let asYouType = new libphonenumber.AsYouType(country); //country var as defined by selector
+    asYouType.input(input);
+    if (debug) {
+      console.log(`inputnumber = ${input}`);
+    }
+    if (input != "" && asYouType.isValid() == false) {
+      validationErrors(
+        $("input[name=phone]"),
+        "phoneLength",
+        "This is not a valid " + country + " number."
+      );
+    } else {
+      if (debug) {
+        console.log("Phone Ok");
+      }
+      validationErrors($("input[name=phone]"), "phoneLength", "ok");
+    }
+
+    if (debug) {
+      console.log(`Selected Country = ${asYouType.country}`);
+      console.log(`Valid Phone = ${asYouType.isValid()}`);
+    }
+  };
+
+  // On Input field change run asYouType phone validator
+  //document
+  //.getElementById("phone-input")
+  document
+    .querySelector("#phone-input")
+    .addEventListener("input", function (event) {
+      let inputNumber = $(this).val(); // get input value
+      if (debug) {
+        console.log(inputNumber);
+      }
+      inputPhoneValidator(inputNumber);
+    });
+
+  // Get Country Dropdown slection and update var for use in asYouType function
+  document
+    .querySelector("#selectCountry")
+    .addEventListener("input", function (event) {
+      country = event.target.value;
+      if (debug) {
+        console.log(event.target.value);
+      }
+      let inputNumber = $("#phone-input").val(); // get input value
+      inputPhoneValidator(inputNumber); // run asyoutype input validator to update country check
+    });
+
+  document.addEventListener("DOMContentLoaded", (event) => {
+    // Get all Supported Countries
+    const countryCodes = new libphonenumber.getCountries();
+    // Get DropDown Element
+    let countrySelectEl = document.getElementById("selectCountry");
+
+    // Populate Dropdown with all supported Country Codes
+    for (var i = 0; i < countryCodes.length; i++) {
+      var opt = countryCodes[i];
+      var el = document.createElement("option");
+      el.textContent = opt;
+      el.value = opt;
+      countrySelectEl.appendChild(el);
+    }
+    if (debug) {
+      console.log(countryCodes);
+    }
+  });
+</script>
+

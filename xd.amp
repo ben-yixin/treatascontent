@@ -1,0 +1,159 @@
+%%[ 
+/* LookupRowsCS Latest_RG_Amount__c Live*/
+
+var @subkey, @c, @utm_campaign, @utm_content, @utm_medium, @utm_source, @utm_term, @jobID, @batchID
+/* Donation amounts */
+var @dt, @das, @das1, @das2, @das3, @das4, @dam, @dam1, @dam2, @dam3, @dam4
+/* EN redirect values */
+var @selected, @das0, @dam0, @eM, @fN, @lN
+/* Form prefill values */
+var @email, @firstname, @lastname, @selectedAmount, @regular, @value0, @value1, @value2, @value3, @value4
+
+/* Set all Ampscript variables from URL params */
+var @urlParamsToSet, @numRowToSet
+set @urlParamsToSet = "c,utm_campaign,utm_content,utm_medium,utm_source,utm_term,dt,das,das1,das2,das3,das4,dam,dam1,dam2,dam3,dam4,selected,das0,dam0,eM,fN,lN"
+set @numRowToSet = BuildRowsetFromString(@urlParamsToSet,',')
+FOR @i = 1 TO Rowcount(@numRowToSet) DO
+  SET @row = Row(@numRowToSet,@i)
+  SET @paramName = Field(@row,1,0)
+  SET @FieldSet = TreatAsContent(CONCAT('%','%[SET ', CONCAT('@',@paramName), ' = QueryParameter("',@paramName,'")]%', '%'))
+NEXT @i
+
+/* Check and set default values */
+set @jobID = QueryParameter('JobID')
+if IndexOf(@jobID, ",") > 0 then
+    set @jobID = Substring(@jobID,1,Subtract(IndexOf(@jobID,","),1))
+endif
+if @jobID == '' then
+  set @jobID = AttributeValue('jobID');
+endif
+
+set @batchID = QueryParameter('jb')
+if IndexOf(@batchID, ",") > 0 then
+    set @batchID = Substring(@batchID,1,Subtract(IndexOf(@batchID,","),1))
+endif
+if @batchID == '' then
+  set @batchID = AttributeValue('_JobSubscriberBatchID');
+endif
+
+set @subkey = QueryParameter("c")
+if @subkey == '' then
+  set @subkey = _subscriberkey
+endif
+set @c = Base64Encode(@subkey)
+set @email = @eM
+set @firstname = @fN
+set @lastname = @lN
+
+if @das0 == '' then
+  set @das0 =  39
+endif
+if @das1 == '' then
+  set @das1 =  55
+endif
+if @das2 == '' then
+  set @das2 =  80
+endif
+if @das3 == '' then
+  set @das3 =  100
+endif
+if @dam0 == '' then
+  set @dam0 =  20
+endif
+if @dam1 == '' then
+  set @dam1 =  35
+endif
+if @dam2 == '' then
+  set @dam2 =  50
+endif
+if @dam3 == '' then
+  set @dam3 =  70
+endif
+if @selected != '' then
+  if @selected == 'dasOther' or @selected == 'damOther' then
+    set @selectedAmount = ''
+  else
+    TreatAsContent( Concat('%', '%[SET @selectedAmount = ', Concat('@',@selected), ']%', '%') )
+  endif
+endif
+/* show regular amounts as default, if selected=das then set regular as false */
+set @regular = true
+set @value0 = false
+set @value1 = false
+set @value2 = false
+set @value3 = false
+set @value4 = false
+if @selected != '' then
+  if (IndexOf(@selected,'das') == 1) then
+    set @regular = false
+  endif
+
+  if (@selected == 'das0' or @selected == 'dam0') then
+    set @value0 = true
+  endif
+
+  if (@selected == 'das1' or @selected == 'dam1') then
+    set @value1 = true
+  endif
+
+  if (@selected == 'das2' or @selected == 'dam2') then
+    set @value2 = true
+  endif
+
+  if (@selected == 'das3' or @selected == 'dam3') then
+    set @value3 = true
+  endif
+
+  if (@selected == 'dasOther' or @selected == 'damOther') then
+    set @value4 = true
+  endif
+endif
+
+var @addressText
+set @addressText = 'Enter NZ postal address'
+if(@regular) then
+  set @addressText = 'NZ postal address to receive your welcome pack'
+endif
+
+var @syncRecords
+
+if Substring(@subkey,1,3) == '003' then 
+   set @syncRecords = LookupRowsCS('Contact_Salesforce', 'Id', @subkey)
+elseif Substring(@subkey,1,3) == '00Q' then
+   set @syncRecords = LookupRowsCS('Lead_Salesforce', 'Id', @subkey)
+endif
+
+if RowCount(@syncRecords) > 0 then
+
+  var @syncRecord, @MailingStreet, @MailingSuburb, @MailingCity, @MailingPostalcode, @PrefPhone, @MobilePhone, @PrefPhone
+  set @syncRecord = Row(@syncRecords, 1)
+
+  set @email = Field(@syncRecord, 'Email')
+  set @firstname = Field(@syncRecord, 'FirstName')
+  set @lastname = Field(@syncRecord, 'LastName')
+
+  if Substring(@subkey,1,3) == '003' then
+    set @MailingStreet = Field(@syncRecord, 'MailingStreet')
+    set @MailingSuburb = Field(@syncRecord, 'Mailing_Suburb__c')
+    set @MailingCity = Field(@syncRecord, 'MailingCity')
+    set @MailingPostalcode = Field(@syncRecord, 'MailingPostalcode')
+    set @PrefPhone = Field(@syncRecord, 's360a__PhoneNumberPreferredPhoneNumber__c')
+  elseif Substring(@subkey,1,3) == '00Q' then
+    set @MobilePhone = Field(@syncRecord, 'MobilePhone')
+    set @Phone = Field(@syncRecord, 'Phone')
+    if @MobilePhone == '' then
+      set @PrefPhone = @Phone
+    else
+      set @PrefPhone = @MobilePhone
+    endif
+  endif
+
+endif /* record found in Sync DE */
+]%%
+
+<input name="PrefPhone" id="PrefPhone" type="hidden" value="%%=V(@PrefPhone)=%%">
+<input name="subkey" id="subkey" type="hidden" value="%%=v(@c)=%%">
+<input name="MailingStreet" id="MailingStreet" type="hidden" value="%%=V(@MailingStreet)=%%">
+<input name="MailingSuburb" id="MailingSuburb" type="hidden" value="%%=V(@MailingSuburb)=%%">
+<input name="MailingCity" id="MailingCity" type="hidden" value="%%=V(@MailingCity)=%%">
+<input name="MailingPostalcode" id="MailingPostalcode" type="hidden" value="%%=V(@MailingPostalcode)=%%">

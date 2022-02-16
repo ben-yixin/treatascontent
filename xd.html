@@ -1,0 +1,219 @@
+<div id="gp_donation">
+  <form method="post" name="payment_form" id="payment_form">
+    <h5 class="form_title">Secure Payment</h5>
+    <div id="personal_info">
+      <input name="amount" type="hidden" value="%%=v(IIF(empty(@selected),@dam0,@selectedAmount))=%%">
+      <input name="localDateTime" type="hidden" value="">
+      <input name="id" type="hidden" value="">
+      <input name="email" type="hidden" value="%%=v(@email)=%%">
+      <input name="firstname" type="hidden" value="%%=v(@firstname)=%%">
+      <input name="lastname" type="hidden" value="%%=v(@lastname)=%%">
+      <input name="cc_name" type="hidden" value="%%=v(@cardName)=%%">
+      <input name="formated_phone" type="hidden" value="">
+      <input name="mobile" type="hidden" value="">
+      <input name="landline" type="hidden" value="">
+      <input name="primary_st_address" type="hidden" value="">
+      <input name="rurual_delivery" type="hidden" value="">
+      <input name="suburb" type="hidden" value="">
+      <input name="city" type="hidden" value="">
+      <input name="postcode" type="hidden" value="">
+      <input name="country" type="hidden" value="">
+      <input name="meshblock" type="hidden" value="">
+      <input name="longitude" type="hidden" value="">
+      <input name="latitude" type="hidden" value="">
+      <input name="url_source" type="hidden" value="">
+      <input name="data_source" type="hidden" value="mc campaign">
+      <input name="email_send_id" type="hidden" value="%%=v(@jobID)=%%">
+      <input name="email_batch_id" type="hidden" value="%%=v(@batchID)=%%">
+      <input name="page_code" id="page_code" type="hidden" value="%%=v(@page_code)=%%">
+      <input name="campaign" type="hidden" value="%%=v(@cam)=%%">
+      <input name="content_code" type="hidden" value="%%=v(@content_code)=%%">
+      <input name="utm_campaign" type="hidden" value="%%=v(@utm_campaign)=%%">
+      <input name="utm_content" type="hidden" value="%%=v(@utm_content)=%%">
+      <input name="utm_medium" type="hidden" value="%%=v(@utm_medium)=%%">
+      <input name="utm_source" type="hidden" value="%%=v(@utm_source)=%%">
+      <input name="utm_term" type="hidden" value="%%=v(@utm_term)=%%">
+      <input name="das1" id="das1" type="hidden" value="%%=v(@das0)=%%">
+      <input name="das2" id="das2" type="hidden" value="%%=v(@das1)=%%">
+      <input name="das3" id="das3" type="hidden" value="%%=v(@das2)=%%">
+      <input name="das4" id="das4" type="hidden" value="%%=v(@das3)=%%">
+      <input name="dam1" id="dam1" type="hidden" value="%%=v(@dam0)=%%">
+      <input name="dam2" id="dam2" type="hidden" value="%%=v(@dam1)=%%">
+      <input name="dam3" id="dam3" type="hidden" value="%%=v(@dam2)=%%">
+      <input name="dam4" id="dam4" type="hidden" value="%%=v(@dam3)=%%">
+      
+
+      <label for="Email">Email address*</label>
+      <input type="email" name="email" pattern="^[\w]{1,}[\w.+-]{0,}@[\w-]{2,}([.][a-zA-Z]{2,}|[.][\w-]{2,}[.][a-zA-Z]{2,}|[.][\w-]{2,}[.][\w-]{2,}[.][a-zA-Z]{2,})$" id="email" data-field-type="EmailAddress" data-validation="email" required="required" data-validation-message="Please enter an email address." value="%%=V(@email)=%%" placeholder=" " oninvalid="this.setCustomValidity('Please enter a valid email address.')" oninput="this.setCustomValidity('')">
+
+      <label for="First Name">First name*</label>
+      <input type="text" name="firstname" id="firstname" data-field-type="Text" required="required" data-validation-message="Please fill out this field." value="%%=V(@FirstName)=%%" placeholder=" ">
+
+      <label for="Last Name">Last name*</label>
+      <input type="text" name="lastname" id="lastname" data-field-type="Text" required="required" data-validation-message="Please fill out this field." value="%%=V(@LastName)=%%" placeholder=" ">
+    </div>
+
+    <div id="donation_form">
+      <h4>Set up your donation</h4>
+      
+      <div class="frequency_links" style="display:none">
+        <div class="rgSelected">
+            <h5>You are making a regular donation once every 4 weeks</h5>
+        </div>
+        <div class="singleSelected" style="display:none">
+            <h5>You are making a single gift</h5>
+        </div>
+      </div>
+
+      <fieldset id="frequency_buttons">
+        <input id="frequency_monthly" name="frequency" type="radio" value="regular" %%[IF
+          @regular
+          THEN]%% checked="checked" %%[ENDIF]%%>
+        <label class="btn btn-default" for="frequency_monthly">Regular</label>
+
+        <input id="frequency_single" name="frequency" type="radio" value="single" %%[IF
+          NOT(@regular)
+          THEN]%% checked="checked" %%[ENDIF]%%>
+        <label class="btn btn-default" for="frequency_single">single</label>
+
+        <h5 class="regular_donation">
+          You are making a regular donation once every 4 weeks
+        </h5>
+        <h5 class="mt-1 please_make_this_recurring">
+          Please consider making this a recurring donation.
+          <br>
+          <small class="text-dark">We rely entirely on supporters like you. A dependable base of
+            support allows us to plan and budget for our campaigns more
+            effectively</small>
+        </h5>
+      </fieldset>
+      
+      <fieldset id="donation_amount">
+        <input id="da1" name="amount_button" type="radio" value="%%=v(IIF(@regular,@dam0,@das0))=%%" %%[IF
+          @value0
+          or
+          empty(@selected)
+          THEN]%% checked="checked" %%[ENDIF]%%>
+        <label class="btn btn-default" for="da1">$%%=v(IIF(@regular,@dam0,@das0))=%%</label>
+
+        <input id="da2" name="amount_button" type="radio" value="%%=v(IIF(@regular,@dam1,@das1))=%%" %%[IF
+          @value1
+          THEN]%% checked="checked" %%[ENDIF]%%>
+        <label class="btn btn-default" for="da2">$%%=v(IIF(@regular,@dam1,@das1))=%%</label>
+
+        <input id="da3" name="amount_button" type="radio" value="%%=v(IIF(@regular,@dam2,@das2))=%%" %%[IF
+          @value2
+          THEN]%% checked="checked" %%[ENDIF]%%>
+        <label class="btn btn-default" for="da3">$%%=v(IIF(@regular,@dam2,@das2))=%%</label>
+
+        <input id="da4" name="amount_button" type="radio" value="%%=v(IIF(@regular,@dam3,@das3))=%%" %%[IF
+          @value3
+          THEN]%% checked="checked" %%[ENDIF]%%>
+        <label class="btn btn-default" for="da4">$%%=v(IIF(@regular,@dam3,@das3))=%%</label>
+
+        <input id="amount_other" name="amount_button" type="radio" value="" %%[IF
+          @value4
+          THEN]%% checked="checked" %%[ENDIF]%%>
+        <label class="btn btn-default" for="amount_other">Other</label>
+
+        <input type="text" pattern="^\$[5-9].*|\$\d{2,}.*$" title="Minimum $5, numbers only" value="" name="amount_other" id="amount_other_value">
+
+      </fieldset>
+      
+      <div class="frequency_links" style="display:none">
+        <div class="rgSelected">
+          <p>Or <a href="#" id="makeSingle">make a single gift</a></p>
+        </div>
+
+        <div class="singleSelected" style="display:none">
+            <a href="#" id="makeRG">Please consider making this a recurring donation.</a><br>
+              <small class="text-dark">We rely entirely on supporters like yuou. A dependable base of
+                support allows us to plan and budget for our campaigns more
+                effectively</small>
+          </div>
+      </div>
+
+      <h4>Payment details</h4>
+      <h5>Please select your payment method</h5>
+
+      <fieldset id="payment_method_buttons">
+        <input checked="checked" id="payment_type_visa" name="payment_type" type="radio" value="credit_card">
+        <label class="btn btn-default" for="payment_type_visa">Credit Card</label>
+
+        <input id="payment_type_direct_debit" name="payment_type" type="radio" value="direct_debit">
+        <label class="btn btn-default" id="payment_type_direct_debit_label" for="payment_type_direct_debit" %%[IF
+          not(@regular)
+          THEN]%% style="display: none" %%[ENDIF]%%>Direct Debit</label>
+      </fieldset>
+
+      <div class="error"><div class="message"></div></div>
+
+      <div class="token"></div>
+      <div class="cc_form" id="cc_detail_form">
+        <label class="text_label" for="credit_card_number">Credit card number</label>
+        <div id="card-number" class="field empty"></div>
+
+        <label class="text_label" for="credit_card_name">Credit card holder name*</label>
+
+        <input type="text" name="credit_card_name" id="credit_card_name" required="required" placeholder="Cardholder's name as shown on card">
+
+        <div id="credit_card_dates">
+          <div class="dates">
+            <label class="text_label" for="expiry_date_month">Expiry date</label>
+
+            <div id="card-expiry" class="field empty third-width"></div>
+          </div>
+
+          <div class="cvc">
+            <label class="text_label" for="cvc">CVC</label>
+            <div id="card-cvc" class="field empty third-width"></div>
+          </div>
+        </div>
+      </div>
+      <div id="direct_debit_form" style="padding-bottom: 50px" class="dd_form">
+        <div id="BankAccountError" style="display: none">
+          Account number validated
+        </div>
+        <label class="text_label" for="name_on_account">Name on Account *</label>
+        <input type="text" name="name_on_account" id="name_on_account" required="required" placeholder="Your bank account name" data-validation-message="Please fill out this field." disabled="">
+        <label class="text_label" for="account_number">Account number *</label>
+        <input type="text" name="account_number" id="account_number" placeholder="xx-xxxx-xxxxxxx-xxx" data-parsley-errors-container="#BankAccountError" required="required" data-parsley-group="bank_account_details" disabled="">
+
+        <p>Authorisation</p>
+        <input type="checkbox" name="authorised" value="false" disabled="disabled" required="">I have authorisation on the bank account above to set up
+        direct debits.
+        <p style="margin-top: 1em;">Terms</p>
+        <input type="checkbox" name="terms" value="false" disabled="disabled" required="">I have read the following <a href="https://www.greenpeace.org/aotearoa/act/donate/direct-debit-terms-conditions/?_ga=2.172148966.414753767.1589343380-1922544307.1588567222&_gac=1.247253424.1589345549.EAIaIQobChMIsrOVxYWw6QIVUX8rCh2nnQETEAAYAiAAEgKUO_D_BwE">Terms &amp; Conditions</a> and authorise this
+        direct debit.
+      </div>
+      <hr>
+      <label for="Postal Address">NZ postal address (optional)</label>
+      <input type="text" name="postaladdress" id="PostalAddress" pattern="^\w+.*" minlength="5" data-field-type="Text" data-validation-message="Please fill out this field." placeholder="%%=v(@addressText)=%%" oninvalid="this.setCustomValidity('Please fill out your postal address, and select from list.')" oninput="this.setCustomValidity('')">
+
+      <label for="Phone">Phone (optional)</label>
+      <div id="error-phoneNumber"></div>
+      <div class="sc-formfield-input" id="phone-input-wrapper" style="display: flex">
+        <select id="selectCountry" class="dropDown">
+          <option>NZ</option>
+        </select>
+        <input type="phone" name="phone" id="phone-input" data-field-type="phone" placeholder="Enter phone number">
+      </div>
+
+      <div class="summary">
+       <mark>You are making a
+         <span class="type">%%=IIF(@regular,"regular","single")=%%</span>
+         donation of $<u><span id="amount_confirm">%%=v(IIF(empty(@selected),@dam0,@selectedAmount))=%%</span></u>
+         <span class="once_every_frequency" %%[IF
+         not(@regular)
+         THEN]%% style="display: none" %%[ENDIF]%%>once every 4 weeks</span>
+       </mark>
+      </div>
+
+      <button id="donation_button" class="sc-button">Donate</button>
+      <label class="mt-3"><input type="checkbox" name="email_opt_in" data-field-type="Boolean" checked="" value="true">&nbsp;I’d like to take urgent action for the Earth. Please send me
+        email updates. Greenpeace believes you have a
+        <a href="https://www.greenpeace.org/aotearoa/privacy/?_ga=2.75179351.414753767.1589343380-1922544307.1588567222&_gac=1.142213382.1589345549.EAIaIQobChMIsrOVxYWw6QIVUX8rCh2nnQETEAAYAiAAEgKUO_D_BwE">right to privacy</a>
+        on the web, and we work to protect your privacy online. *</label>
+    </div>
+  </form>
+</div>

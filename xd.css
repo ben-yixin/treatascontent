@@ -1,0 +1,84 @@
+%%[ 
+/* style */
+]%%
+<style>
+  div#card-number {
+    border: 1px solid black;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 1em;
+}
+  #personal_info{
+    padding-bottom: 20px; 
+  }
+  #personal_info input[type=email], input[type=text]{
+    width:100%;
+    padding: 6px 12px;
+    margin-bottom: 15px;
+  }
+  #donation_form div.error {
+    background-color: red;
+    color: white;
+    padding: 5px;
+    margin-bottom: 5px; 
+    display:none;
+  }
+  #donation_form div.error .message {
+    color: white;
+    margin-left: 5px;
+    font-size: 1em;
+  }
+  #gp_donation input:not(:placeholder-shown):invalid {
+    border-color: red;
+    border-style: solid;
+    background-color: pink;
+  }
+  #donation_amount{
+    padding-top: 20px;
+  }
+  #direct_debit_form input[type=text] {
+    width:100%;
+    padding: 6px 12px;
+    margin-bottom: 15px;
+  }
+  #donation_form button{
+    background: none repeat scroll 0 0 #396984 !important;
+    border: 1px solid #396984 !important;
+    color: #FFFFFF;
+    text-shadow: 0 0 2px #9A9A9A;
+    width: 100%;
+    padding: 0.3125em 0.625em;
+    font-size: 1.3em;
+    text-shadow: 0 0 2px #9a9a9a;
+  }
+  #error-phoneNumber{
+   font-size: small; 
+  }
+/*For Phone Country Dropdown*/
+.warning{
+   color: red;
+}
+#phone-input-wrapper{
+  height: 2.4em;
+}
+#selectCountry {
+    background: #fff;
+    border: 1px solid #99999950;
+    border-radius: 5px;
+    margin-right: 5px;
+    font-weight: 600;
+    width: 6em !important;
+    text-align: center;
+}
+#phone-input {
+    width: 100% !important;
+    padding: 6px 12px;
+    border: 1px solid #99999950;
+    border-radius: 5px;
+}
+#phoneLengthAlert{
+    font-size: 11px !important;
+    margin-top: 0.4em;
+    margin-bottom: 1em;
+}
+</style>

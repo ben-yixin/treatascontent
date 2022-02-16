@@ -4,6 +4,7 @@
 Platform.Load("Core", "1.1.1");
 // Check request originates from a *.act.greenpeace.org.nz domain
 try {
+    
     var referer = Platform.Request.ReferrerURL;
     var regex = /^(https:\/\/(.*\.)?((act.greenpeace)\.org.nz))($|\/)/g;
     var match = referer.match(regex);
